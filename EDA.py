@@ -11,6 +11,7 @@ plt.rcParams['figure.figsize'] = (12, 6)
 columnas = ['red_id', 'contaminante_id', 'lectura', 'fc_lectura', 'hora_lectura']
 df = pd.read_csv('Datos2020.csv', usecols=columnas)
 
+
 # Crear columna 'estados' basada en 'red_id' según el diccionario de datos
 def mapear_estado(red_id):
     # Mapeo de red_id a estados basado en el diccionario de datos
@@ -62,6 +63,7 @@ def mapear_estado(red_id):
 
     return mapeo_estados.get(red_id, 'Desconocido')
 
+
 # Diccionario de coordenadas (latitud, longitud) por estado
 coordenadas_estados = {
     'Aguascalientes': (21.885256, -102.291568),
@@ -87,9 +89,11 @@ coordenadas_estados = {
     'Desconocido': (0, 0)  # Para estados no mapeados
 }
 
+
 # Función para obtener coordenadas basadas en el estado
 def obtener_coordenadas(estado):
     return coordenadas_estados.get(estado, (0, 0))
+
 
 # Agregar columna 'estados'
 df['estados'] = df['red_id'].apply(mapear_estado)
@@ -97,6 +101,26 @@ df['estados'] = df['red_id'].apply(mapear_estado)
 # Agregar columnas de latitud y longitud
 df['latitud'] = df['estados'].apply(lambda x: obtener_coordenadas(x)[0])
 df['longitud'] = df['estados'].apply(lambda x: obtener_coordenadas(x)[1])
+
+
+# Función para eliminar datos con etiqueta "Desconocido"
+def eliminar_desconocidos(dataframe):
+    """
+    Elimina todas las filas que tengan 'Desconocido' en la columna 'estados'
+    """
+    filas_originales = len(dataframe)
+    dataframe_filtrado = dataframe[dataframe['estados'] != 'Desconocido']
+    filas_eliminadas = filas_originales - len(dataframe_filtrado)
+
+    print(f"Se eliminaron {filas_eliminadas} filas con estado 'Desconocido'")
+    print(f"Dataset original: {filas_originales} filas")
+    print(f"Dataset filtrado: {len(dataframe_filtrado)} filas")
+
+    return dataframe_filtrado
+
+
+# Aplicar la función para eliminar datos desconocidos
+df = eliminar_desconocidos(df)
 
 # Renombrar columnas según lo solicitado
 df = df.rename(columns={'red_id': 'estacion_id'})

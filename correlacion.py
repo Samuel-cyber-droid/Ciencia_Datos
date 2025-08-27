@@ -9,7 +9,7 @@ sns.set(style="whitegrid")
 plt.rcParams['figure.figsize'] = (12, 10)
 
 # Cargar el dataset
-df = pd.read_csv('Datos2020_con_estados.csv')
+df = pd.read_csv('Datos2020_con_estados_y_coordenadas.csv')
 
 # Convertir fecha a datetime
 df['fc_lectura'] = pd.to_datetime(df['fc_lectura'], format='%d/%m/%y')

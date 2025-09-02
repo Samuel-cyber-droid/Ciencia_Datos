@@ -11,8 +11,11 @@ plt.rcParams['figure.figsize'] = (12, 10)
 # Cargar el dataset
 df = pd.read_csv('Datos2020_con_estados_y_coordenadas.csv')
 
-# Convertir fecha a datetime
-df['fc_lectura'] = pd.to_datetime(df['fc_lectura'], format='%d/%m/%y')
+# Convertir fecha a datetime (manejar diferentes formatos)
+try:
+    df['fc_lectura'] = pd.to_datetime(df['fc_lectura'], format='%d/%m/%y')
+except ValueError:
+    df['fc_lectura'] = pd.to_datetime(df['fc_lectura'])
 
 # Extraer información temporal
 df['hora'] = df['hora_lectura'] - 1  # Convertir a formato 0-23
@@ -27,9 +30,12 @@ pivot_data = df.pivot_table(
     aggfunc='mean'
 ).reset_index()
 
-# Calcular matriz de correlación
-correlation_columns = ['hora', 'dia_semana', 'mes'] + list(df['contaminante_id'].unique())
-correlation_matrix = pivot_data[correlation_columns].corr()
+# Calcular matriz de correlación - SOLUCIÓN AL ERROR PRINCIPAL
+# Solo usar columnas numéricas para la correlación
+numeric_columns = ['hora', 'dia_semana', 'mes'] + [col for col in pivot_data.columns
+                   if col not in ['fc_lectura', 'hora', 'dia_semana', 'mes'] and pd.api.types.is_numeric_dtype(pivot_data[col])]
+
+correlation_matrix = pivot_data[numeric_columns].corr()
 
 # Visualizar matriz de correlación
 plt.figure(figsize=(14, 12))
@@ -54,22 +60,28 @@ print("ANÁLISIS DE CORRELACIONES TEMPORALES")
 print("="*60)
 
 # Correlaciones entre hora y contaminantes
-hora_correlations = correlation_matrix.loc['hora', df['contaminante_id'].unique()].sort_values(ascending=False)
-print("\nCorrelación entre Hora del Día y Contaminantes:")
-for contaminante, corr_value in hora_correlations.items():
-    print(f"{contaminante}: {corr_value:.3f}")
+contaminantes_numericos = [col for col in correlation_matrix.columns
+                          if col not in ['hora', 'dia_semana', 'mes']]
+
+if 'hora' in correlation_matrix.index:
+    hora_correlations = correlation_matrix.loc['hora', contaminantes_numericos].sort_values(ascending=False)
+    print("\nCorrelación entre Hora del Día y Contaminantes:")
+    for contaminante, corr_value in hora_correlations.items():
+        print(f"{contaminante}: {corr_value:.3f}")
 
 # Correlaciones entre día de la semana y contaminantes
-dia_correlations = correlation_matrix.loc['dia_semana', df['contaminante_id'].unique()].sort_values(ascending=False)
-print("\nCorrelación entre Día de la Semana y Contaminantes:")
-for contaminante, corr_value in dia_correlations.items():
-    print(f"{contaminante}: {corr_value:.3f}")
+if 'dia_semana' in correlation_matrix.index:
+    dia_correlations = correlation_matrix.loc['dia_semana', contaminantes_numericos].sort_values(ascending=False)
+    print("\nCorrelación entre Día de la Semana y Contaminantes:")
+    for contaminante, corr_value in dia_correlations.items():
+        print(f"{contaminante}: {corr_value:.3f}")
 
 # Correlaciones entre mes y contaminantes
-mes_correlations = correlation_matrix.loc['mes', df['contaminante_id'].unique()].sort_values(ascending=False)
-print("\nCorrelación entre Mes del Año y Contaminantes:")
-for contaminante, corr_value in mes_correlations.items():
-    print(f"{contaminante}: {corr_value:.3f}")
+if 'mes' in correlation_matrix.index:
+    mes_correlations = correlation_matrix.loc['mes', contaminantes_numericos].sort_values(ascending=False)
+    print("\nCorrelación entre Mes del Año y Contaminantes:")
+    for contaminante, corr_value in mes_correlations.items():
+        print(f"{contaminante}: {corr_value:.3f}")
 
 # Visualización de patrones temporales
 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
@@ -82,7 +94,7 @@ for contaminante in df['contaminante_id'].unique():
 axes[0, 0].set_title('Patrón de Contaminación por Hora del Día')
 axes[0, 0].set_xlabel('Hora del Día (0-23)')
 axes[0, 0].set_ylabel('Nivel de Contaminación Promedio')
-axes[0, 0].legend()
+axes[0, 0].legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 axes[0, 0].grid(True)
 
 # Patrón por día de la semana
@@ -96,7 +108,7 @@ axes[0, 1].set_xlabel('Día de la Semana')
 axes[0, 1].set_xticks(range(7))
 axes[0, 1].set_xticklabels(dias, rotation=45)
 axes[0, 1].set_ylabel('Nivel de Contaminación Promedio')
-axes[0, 1].legend()
+axes[0, 1].legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 axes[0, 1].grid(True)
 
 # Patrón por mes del año
@@ -110,23 +122,24 @@ axes[1, 0].set_xlabel('Mes del Año')
 axes[1, 0].set_xticks(range(1, 13))
 axes[1, 0].set_xticklabels(meses)
 axes[1, 0].set_ylabel('Nivel de Contaminación Promedio')
-axes[1, 0].legend()
+axes[1, 0].legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 axes[1, 0].grid(True)
 
 # Boxplot por hora del día para el contaminante principal
-contaminante_principal = df['contaminante_id'].value_counts().index[0]
-df_principal = df[df['contaminante_id'] == contaminante_principal]
-sns.boxplot(x='hora', y='lectura', data=df_principal, ax=axes[1, 1])
-axes[1, 1].set_title(f'Distribución de {contaminante_principal} por Hora del Día')
-axes[1, 1].set_xlabel('Hora del Día (0-23)')
-axes[1, 1].set_ylabel('Nivel de Contaminación')
+if not df.empty:
+    contaminante_principal = df['contaminante_id'].value_counts().index[0]
+    df_principal = df[df['contaminante_id'] == contaminante_principal]
+    sns.boxplot(x='hora', y='lectura', data=df_principal, ax=axes[1, 1])
+    axes[1, 1].set_title(f'Distribución de {contaminante_principal} por Hora del Día')
+    axes[1, 1].set_xlabel('Hora del Día (0-23)')
+    axes[1, 1].set_ylabel('Nivel de Contaminación')
 
 plt.tight_layout()
 plt.show()
 
 # Resumen de hallazgos
 print("="*60)
-print("RESUMEN DE HALLazGOS TEMPORALES")
+print("RESUMEN DE HALLAZGOS TEMPORALES")  # Corregido: "HALLAZGOS"
 print("="*60)
 
 # Identificar correlaciones significativas
@@ -134,13 +147,14 @@ umbral_correlacion = 0.3
 correlaciones_significativas = {}
 
 for variable in ['hora', 'dia_semana', 'mes']:
-    for contaminante in df['contaminante_id'].unique():
-        if contaminante in correlation_matrix.columns and variable in correlation_matrix.index:
-            corr_val = correlation_matrix.loc[variable, contaminante]
-            if abs(corr_val) > umbral_correlacion:
-                if variable not in correlaciones_significativas:
-                    correlaciones_significativas[variable] = []
-                correlaciones_significativas[variable].append((contaminante, corr_val))
+    if variable in correlation_matrix.index:
+        for contaminante in contaminantes_numericos:
+            if contaminante in correlation_matrix.columns:
+                corr_val = correlation_matrix.loc[variable, contaminante]
+                if abs(corr_val) > umbral_correlacion:
+                    if variable not in correlaciones_significativas:
+                        correlaciones_significativas[variable] = []
+                    correlaciones_significativas[variable].append((contaminante, corr_val))
 
 print("\nCorrelaciones significativas (|r| > 0.3):")
 for variable, correlaciones in correlaciones_significativas.items():
